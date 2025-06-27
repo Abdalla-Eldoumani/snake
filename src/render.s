@@ -1,6 +1,8 @@
 /*
  * render.s: Terminal rendering logic
  */
+.include "definitions.s"
+
 .equ STDOUT, 1
 .equ WRITE, 64
 

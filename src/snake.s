@@ -1,10 +1,7 @@
 /*
  * snake.s: Game state and logic
  */
-
-.equ WORLD_WIDTH, 40
-.equ WORLD_HEIGHT, 20
-.equ MAX_SNAKE_LEN, 256
+.include "definitions.s"
 
 .global snake_body
 .global snake_len
