@@ -9,6 +9,7 @@
 .global snake_body
 .global snake_len
 .global snake_dir
+.global snake_head_idx
 
 .data
 .align 2
@@ -27,3 +28,6 @@ snake_len:
 snake_dir:
     // 0:right, 1:left, 2:up, 3:down
     .byte 0
+
+snake_head_idx:
+    .word 3
