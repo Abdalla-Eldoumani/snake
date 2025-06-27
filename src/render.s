@@ -71,8 +71,8 @@ render_snake:
 
     // Get snake properties
     ldr     x19, =snake_body
-    ldr     x20_addr, =snake_len
-    ldr     w20, [x20_addr]
+    ldr     x9, =snake_len      // FIX: Use register x9 to hold address
+    ldr     w20, [x9]           // FIX: Load from the address in x9
     mov     x21, #0                 // Loop counter i=0
 
 loop_snake_body:
@@ -116,7 +116,7 @@ loop_snake_body:
 
     // Write the escape code
     mov     x0, sp
-    sub     x1, x10, sp
+    sub     x1, x10, x0             // FIX: Calculate length (end - start)
     bl      write_stdout
 
     // Write the snake character
