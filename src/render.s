@@ -78,6 +78,17 @@ render_snake:
     ldr     x19, =snake_body      // x19 = base address of snake body
     ldr     x9, =snake_len
     ldr     w20, [x9]             // w20 = snake_len
+    ldr     x9, =snake_head_idx
+    ldr     w9, [x9]              // w9 = head_idx
+
+    // Calculate tail index: tail_idx = (head_idx - snake_len + 1)
+    sub     w11, w9, w20
+    add     w11, w11, #1
+    // Handle negative results for modulo
+    add     w11, w11, #MAX_SNAKE_LEN
+    mov     w12, #MAX_SNAKE_LEN
+    udiv    w13, w11, w12
+    msub    w11, w13, w12, w11 // w11 = tail_idx
 
     mov     x21, #0                 // Loop counter i=0
 
@@ -85,8 +96,14 @@ loop_snake_body:
     cmp     x21, x20                // while(i < snake_len)
     b.ge    loop_end
 
+    // Calculate current segment's index in the circular buffer
+    add     w12, w11, w21           // w12 = tail_idx + i
+    mov     w13, #MAX_SNAKE_LEN
+    udiv    w14, w12, w13
+    msub    w12, w14, w13, w12      // w12 = current_segment_idx
+
     // Read snake segment {Y, X}
-    add     x22, x19, x21, lsl #1   // Address of snake_body[i]
+    add     x22, x19, w12, uxtw #1  // Address of snake_body[current_segment_idx]
     ldrb    w23, [x22, #0]          // Y coordinate
     ldrb    w24, [x22, #1]          // X coordinate
 
