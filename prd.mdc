@@ -1,0 +1,84 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Snake Game in Pure ARMv8 Assembly – Product Requirements & Cursor Setup
+
+## 1  Overview
+
+Design and implement a fully‑playable **Snake** game that runs in the Linux terminal on any 64‑bit Arm board (Raspberry Pi 5, Apple M‑series, Ampere Altra…). The entire runtime – game loop, rendering, input, timing – is written **exclusively in AArch64 (ARM v8‑A) assembly**, showcasing elite low‑level skills, micro‑architectural awareness, and agent‑assisted development inside **Cursor**.
+
+* **Primary goal:** deliver a demonstrably fast, <500 KiB ELF binary that achieves ≥60 FPS on Cortex‑A55 while consuming <3 % of a single core.
+* **Secondary goal:** provide a reference project that illustrates best‑practice Cursor rule design for agentic coding workflows.
+
+---
+
+## 2  Gameplay & UX
+
+* Fixed 40×20 character grid rendered with ANSI escape sequences.
+* Non‑blocking arrow‑key control; “p” pauses, “q” quits.
+* Score and speed multiplier displayed in the status bar.
+* Difficulty scales every 10 food pickups (shorter tick interval).
+
+---
+
+## 3  Technical Requirements
+
+| Area            | Requirement                                                              |
+| --------------- | ------------------------------------------------------------------------ |
+| **ISA**         | AArch64 only – NO Thumb, x86, or RISC‑V fall‑backs.                      |
+| **Extensions**  | NEON for row clears & data moves; optional SVE pathwell if VL ≥ 256.     |
+| **Syscalls**    | `write`, `read`, `select`, `clock_nanosleep`, `ioctl` (termios), `exit`. |
+| **Toolchain**   | LLVM 16 + GNU binutils; Makefile provided.                               |
+| **Terminal**    | POSIX tty in raw mode;  true‑color support not required.                 |
+| **Binary size** | Strip symbols; link with `-static -nostdlib`; target <500 KiB.           |
+
+---
+
+## 4  Architecture
+
+1. **boot.s** – `_start`, term‑init, PRNG seed, jump to `main`.
+2. **main.s** – main loop; handles render, input, tick pacing.
+3. **render.s** – screen‑buffer clear via 128‑bit `ST1`, diff flush for minimal writes.
+4. **snake.s** – circular body buffer ops, collision detect.
+5. **rand.s** – xor‑shift inline PRNG using `CNTVCT_EL0`.
+6. **syscall.s** – tiny wrappers (`svc #0`) for readability.
+7. **build/** – Makefile, Dockerfile (arm64v8/debian\:bookworm).
+
+All modules assembled separately then linked with an LD script placing `.text` before `.bss` to maximise I‑cache locality.
+
+---
+
+## 5  Performance Budget & Benchmarks
+
+* Target tick ≤ 0.6 ms on Cortex‑A55.
+* ≤2 branch mis‑predicts per tick (use `csinc` tricks for branchless dir update).
+* Benchmark harness: `perf stat -e cycles,br_mis_pred ./snake` + CSV export.
+
+---
+
+## 6  Milestones
+
+|  ID | Phase                          | Duration | Exit Criteria                              |
+| --- | ------------------------------ | -------- | ------------------------------------------ |
+|  M1 | Skeleton build & raw‑mode term |  1 day   | Clean compile, blank screen draws.         |
+|  M2 | Game mechanics complete        |  2 days  | Playable snake w/ food, no scoring.        |
+|  M3 | Optimised NEON renderer        |  1 day   | 40×20 grid ≤0.3 ms clear.                  |
+|  M4 | PMU‑guided micro‑tuning        |  1 day   | Meet performance budget.                   |
+|  M5 | Packaging & CI                 |  0.5 day | GitHub Actions cross‑build, release asset. |
+
+---
+
+## 7  Risk & Mitigation
+
+* **TTY portability:** test on xterm, iTerm2, Linux console.  Mitigate with fallback to `tput` queries.
+* **SVE detection:** gracefully degrade to NEON path based on `read /system/cpuinfo` VL.
+* **Power draw:** profile `energy_pkg` counters; cap FPS if SoC throttles.
+---
+
+## 9  Future Work
+
+* Optional SVE128/SVE256 renderer.
+* Add WASM build via `wasm‑wave + Arm642Wasm` experiment.
+* Port to bare‑metal on Raspberry Pi 5 (EL1, frame‑buffer).

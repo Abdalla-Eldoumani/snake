@@ -1,0 +1,9 @@
+---
+description: Default best‑practice prompting rules for this repository.
+---
+## Scope
+These rules act as fallback when no specific `.mdc` matches.
+
+- Prefer incremental, test‑driven edits.
+- After code generation, always output an **ARMv8‑only** explanation.
+- Ask clarifying questions if requirements are ambiguous.
