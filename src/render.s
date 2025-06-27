@@ -49,8 +49,9 @@ render_init:
 
 // Converts an 8-bit unsigned integer in w0 to a string at the address in x1.
 // Returns the number of digits in w0.
-// Clobbers: x0-x4
+// Clobbers: x0-x5
 utoa8:
+    mov     x5, x1          // Save original buffer pointer
     mov     x2, #10         // Divisor
     udiv    w3, w0, w2      // w3 = w0 / 10 (tens digit)
     msub    w4, w3, w2, w0  // w4 = w0 - (w3 * 10) (ones digit)
@@ -62,7 +63,7 @@ utoa8:
     strb    w3, [x1], #1    // Store tens digit
 1:
     strb    w4, [x1], #1    // Store ones digit
-    sub     w0, w1, w0      // Return number of digits written
+    sub     w0, x1, x5      // Return number of bytes written (new_ptr - old_ptr)
     ret
 
 render_snake:
@@ -85,8 +86,7 @@ loop_snake_body:
     ldrb    w24, [x22, #1]          // X coordinate
 
     // Build ANSI escape code on the stack: \\x1b[<Y>;<X>H
-    sub     sp, sp, #16             // Temp buffer for escape code
-    mov     x10, sp                 // x10 is our buffer pointer
+    mov     x10, sp                 // Buffer starts at the base of our stack frame
 
     // "\\x1b["
     ldr     x0, =move_cursor_seq
@@ -116,7 +116,7 @@ loop_snake_body:
 
     // Write the escape code
     mov     x0, sp
-    sub     x1, x10, x0             // FIX: Calculate length (end - start)
+    sub     x1, x10, x0
     bl      write_stdout
 
     // Write the snake character
@@ -124,7 +124,6 @@ loop_snake_body:
     mov     x1, #1
     bl      write_stdout
 
-    add     sp, sp, #16             // Deallocate buffer
     add     x21, x21, #1            // i++
     b       loop_snake_body
 
