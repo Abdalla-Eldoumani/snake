@@ -57,7 +57,7 @@ shift_loop:
     // 2. Calculate new head position
     // Get old head (now at second-to-last position)
     sub     w10, w20, #2
-    add     x11, x19, w10, lsl #1
+    add     x11, x19, w10, uxtw #1
     ldrb    w12, [x11, #0]      // Current Y
     ldrb    w13, [x11, #1]      // Current X
 
@@ -75,7 +75,7 @@ shift_loop:
 
     // 3. Store new head at the end of the array
     sub     w10, w20, #1
-    add     x11, x19, w10, lsl #1
+    add     x11, x19, w10, uxtw #1
     strb    w12, [x11, #0]      // Store new Y
     strb    w13, [x11, #1]      // Store new X
 
