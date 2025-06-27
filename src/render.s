@@ -69,9 +69,10 @@ utoa8:
     ret
 
 render_snake:
-    stp     x29, x30, [sp, #-32]!   // Allocate 32 bytes for buffer and frame
-    stp     x19, x20, [sp, #16]     // Save callee-saved registers
+    // Allocate 48-byte stack frame: 16 for FP/LR, 16 for x19/x20, 16 for buffer
+    stp     x29, x30, [sp, #-48]!
     mov     x29, sp
+    stp     x19, x20, [sp, #16]     // Save callee-saved registers
 
     // Get snake properties
     ldr     x19, =snake_body      // x19 = base address of snake body
@@ -107,8 +108,8 @@ loop_snake_body:
     ldrb    w23, [x22, #0]          // Y coordinate
     ldrb    w24, [x22, #1]          // X coordinate
 
-    // Build ANSI escape code in a safe buffer on the stack: \\x1b[<Y>;<X>H
-    add     x11, sp, #16            // x11 = start of our safe buffer
+    // Build ANSI escape code in a safe buffer on the stack
+    add     x11, sp, #32            // x11 = start of our safe buffer
     mov     x10, x11                // x10 = current position in buffer
 
     // Write "\\x1b[" (2 bytes)
@@ -150,5 +151,5 @@ loop_snake_body:
 
 loop_end:
     ldp     x19, x20, [sp, #16]     // Restore callee-saved registers
-    ldp     x29, x30, [sp], #32
+    ldp     x29, x30, [sp], #48
     ret
