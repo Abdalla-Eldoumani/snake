@@ -8,10 +8,10 @@
 .global render_snake
 
 .section .rodata
-.align 1
-clear_screen_seq: .ascii "\\x1b[2J"
-hide_cursor_seq:  .ascii "\\x1b[?25l"
-move_cursor_seq:  .ascii "\\x1b[" // Y;XH
+clear_screen_seq: .byte 0x1b, '[', '2', 'J'
+clear_screen_len: .equ . - clear_screen_seq
+hide_cursor_seq:  .byte 0x1b, '[', '?', '2', '5', 'l'
+hide_cursor_len:  .equ . - hide_cursor_seq
 snake_char:       .ascii "#"
 
 .text
@@ -36,12 +36,12 @@ render_init:
 
     // Clear screen
     ldr     x0, =clear_screen_seq
-    mov     x1, #4
+    mov     x1, #clear_screen_len
     bl      write_stdout
 
     // Hide cursor
     ldr     x0, =hide_cursor_seq
-    mov     x1, #6
+    mov     x1, #hide_cursor_len
     bl      write_stdout
 
     ldp     x29, x30, [sp], #16
