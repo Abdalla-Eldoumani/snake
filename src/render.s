@@ -9,9 +9,9 @@
 
 .section .rodata
 clear_screen_seq: .byte 0x1b, '[', '2', 'J'
-clear_screen_len: .equ . - clear_screen_seq
+.equ clear_screen_len, . - clear_screen_seq
 hide_cursor_seq:  .byte 0x1b, '[', '?', '2', '5', 'l'
-hide_cursor_len:  .equ . - hide_cursor_seq
+.equ hide_cursor_len, . - hide_cursor_seq
 snake_char:       .ascii "#"
 
 .text
