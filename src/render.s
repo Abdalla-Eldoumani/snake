@@ -63,7 +63,7 @@ utoa8:
     strb    w3, [x1], #1    // Store tens digit
 1:
     strb    w4, [x1], #1    // Store ones digit
-    sub     w0, x1, x5      // Return number of bytes written (new_ptr - old_ptr)
+    sub     x0, x1, x5      // Return number of bytes written (new_ptr - old_ptr)
     ret
 
 render_snake:
@@ -72,8 +72,8 @@ render_snake:
 
     // Get snake properties
     ldr     x19, =snake_body
-    ldr     x9, =snake_len      // FIX: Use register x9 to hold address
-    ldr     w20, [x9]           // FIX: Load from the address in x9
+    ldr     x9, =snake_len
+    ldr     w20, [x9]
     mov     x21, #0                 // Loop counter i=0
 
 loop_snake_body:
@@ -85,14 +85,13 @@ loop_snake_body:
     ldrb    w23, [x22, #0]          // Y coordinate
     ldrb    w24, [x22, #1]          // X coordinate
 
-    // Build ANSI escape code on the stack: \\x1b[<Y>;<X>H
-    mov     x10, sp                 // Buffer starts at the base of our stack frame
+    // Build ANSI escape code in a safe buffer on the stack: \\x1b[<Y>;<X>H
+    add     x11, sp, #16            // x11 = start of our safe buffer
+    mov     x10, x11                // x10 = current position in buffer
 
-    // "\\x1b["
-    ldr     x0, =move_cursor_seq
-    ldr     w1, [x0]
-    str     w1, [x10]
-    add     x10, x10, #3            // Advance buffer pointer
+    // Write "\\x1b[" (2 bytes)
+    mov     w9, #0x5b1b             // ASCII for '[' is 0x5b, ESC is 0x1b
+    strh    w9, [x10], #2           // Store halfword and advance pointer by 2
 
     // <Y>
     mov     w0, w23
@@ -101,8 +100,8 @@ loop_snake_body:
     add     x10, x10, x0
 
     // ";"
-    mov     w1, #';'
-    strb    w1, [x10], #1
+    mov     w9, #';'
+    strb    w9, [x10], #1
 
     // <X>
     mov     w0, w24
@@ -111,12 +110,12 @@ loop_snake_body:
     add     x10, x10, x0
 
     // "H"
-    mov     w1, #'H'
-    strb    w1, [x10], #1
+    mov     w9, #'H'
+    strb    w9, [x10], #1
 
     // Write the escape code
-    mov     x0, sp
-    sub     x1, x10, x0
+    mov     x0, x11                 // Arg 1: start of the buffer
+    sub     x1, x10, x11            // Arg 2: length (current_ptr - start_ptr)
     bl      write_stdout
 
     // Write the snake character
