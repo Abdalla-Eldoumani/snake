@@ -20,11 +20,22 @@ main:
     bl      render_init
 
 game_loop:
+    // Store old tail position before advancing
+    ldr     x9, =snake_body
+    ldrh    w19, [x9]           // w19 = {X, Y} of old tail
+
     // Advance game state
     bl      snake_advance
 
-    // Render the current game state
+    // Render the new frame
     bl      render_snake
+
+    // Clear the old tail segment
+    lsr     w20, w19, #8        // w20 = X
+    uxtb    w19, w19          // w19 = Y
+    mov     w0, w19
+    mov     w1, w20
+    bl      render_clear_tail
 
     // Sleep for a bit
     mov     x0, #CLOCK_MONOTONIC

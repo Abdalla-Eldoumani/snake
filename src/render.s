@@ -8,6 +8,7 @@
 
 .global render_init
 .global render_snake
+.global render_clear_tail
 
 .section .rodata
 clear_screen_seq: .byte 0x1b, '[', '2', 'J'
@@ -15,6 +16,7 @@ clear_screen_seq: .byte 0x1b, '[', '2', 'J'
 hide_cursor_seq:  .byte 0x1b, '[', '?', '2', '5', 'l'
 .equ hide_cursor_len, . - hide_cursor_seq
 snake_char:       .ascii "#"
+clear_char:       .ascii " "
 
 .text
 
@@ -78,17 +80,6 @@ render_snake:
     ldr     x19, =snake_body      // x19 = base address of snake body
     ldr     x9, =snake_len
     ldr     w20, [x9]             // w20 = snake_len
-    ldr     x9, =snake_head_idx
-    ldr     w9, [x9]              // w9 = head_idx
-
-    // Calculate tail index: tail_idx = (head_idx - snake_len + 1)
-    sub     w11, w9, w20
-    add     w11, w11, #1
-    // Handle negative results for modulo
-    add     w11, w11, #MAX_SNAKE_LEN
-    mov     w12, #MAX_SNAKE_LEN
-    udiv    w13, w11, w12
-    msub    w11, w13, w12, w11 // w11 = tail_idx
 
     mov     x21, #0                 // Loop counter i=0
 
@@ -96,14 +87,8 @@ loop_snake_body:
     cmp     x21, x20                // while(i < snake_len)
     b.ge    loop_end
 
-    // Calculate current segment's index in the circular buffer
-    add     w12, w11, w21           // w12 = tail_idx + i
-    mov     w13, #MAX_SNAKE_LEN
-    udiv    w14, w12, w13
-    msub    w12, w14, w13, w12      // w12 = current_segment_idx
-
     // Read snake segment {Y, X}
-    add     x22, x19, w12, uxtw #1  // Address of snake_body[current_segment_idx]
+    add     x22, x19, x21, lsl #1   // Address of snake_body[i]
     ldrb    w23, [x22, #0]          // Y coordinate
     ldrb    w24, [x22, #1]          // X coordinate
 
@@ -151,4 +136,51 @@ loop_snake_body:
 loop_end:
     ldp     x19, x20, [sp, #16]     // Restore callee-saved registers
     ldp     x29, x30, [sp], #48
+    ret
+
+render_clear_tail:
+    // Args: w0=Y, w1=X
+    stp     x29, x30, [sp, #-32]!
+    stp     x19, x20, [sp, #16]     // Save temp registers
+    mov     x29, sp
+
+    // Preserve args
+    mov     w19, w0
+    mov     w20, w1
+
+    // Build ANSI escape code in a safe buffer on the stack
+    mov     x11, sp                 // Buffer starts at sp
+    add     x11, sp, #16            // Use safe area after saved regs
+    mov     x10, x11
+
+    mov     w9, #0x5b1b
+    strh    w9, [x10], #2
+
+    mov     w0, w19 // Y coord
+    mov     x1, x10
+    bl      utoa8
+    add     x10, x10, x0
+
+    mov     w9, #';'
+    strb    w9, [x10], #1
+
+    mov     w0, w20 // X coord
+    mov     x1, x10
+    bl      utoa8
+    add     x10, x10, x0
+
+    mov     w9, #'H'
+    strb    w9, [x10], #1
+
+    mov     x0, x11
+    sub     x1, x10, x11
+    bl      write_stdout
+
+    // Write the clear character
+    ldr     x0, =clear_char
+    mov     x1, #1
+    bl      write_stdout
+
+    ldp     x19, x20, [sp, #16]
+    ldp     x29, x30, [sp], #32
     ret

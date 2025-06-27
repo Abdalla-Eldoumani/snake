@@ -6,7 +6,6 @@
 .global snake_body
 .global snake_len
 .global snake_dir
-.global snake_head_idx
 .global snake_advance
 
 .data
@@ -27,9 +26,6 @@ snake_dir:
     // 0:right, 1:left, 2:up, 3:down
     .byte 0
 
-snake_head_idx:
-    .word 3
-
 // Branchless direction mapping: {dX, dY} pairs for {R, L, U, D}
 direction_deltas:
     .byte 1, 0   // Right
@@ -45,17 +41,29 @@ snake_advance:
 
     // Load state
     ldr     x19, =snake_body
-    ldr     x9, =snake_head_idx
-    ldr     w20, [x9]           // w20 = current head index
-    ldr     x9, =snake_dir
-    ldrb    w10, [x9]           // w10 = current direction
+    ldr     x9, =snake_len
+    ldr     w20, [x9]           // w20 = snake_len
 
-    // Get current head coordinates
-    add     x11, x19, x20, lsl #1
+    // 1. Shift body array one element to the left
+    mov     x1, x19             // dest = &snake_body[0]
+    add     x0, x19, #2         // src = &snake_body[1]
+    sub     w2, w20, #1         // n_pairs = snake_len - 1
+shift_loop:
+    ldrh    w3, [x0], #2
+    strh    w3, [x1], #2
+    subs    w2, w2, #1
+    b.ne    shift_loop
+
+    // 2. Calculate new head position
+    // Get old head (now at second-to-last position)
+    sub     w10, w20, #2
+    add     x11, x19, w10, lsl #1
     ldrb    w12, [x11, #0]      // Current Y
     ldrb    w13, [x11, #1]      // Current X
 
     // Get dX, dY from lookup table
+    ldr     x9, =snake_dir
+    ldrb    w10, [x9]
     ldr     x14, =direction_deltas
     add     x14, x14, x10, lsl #1
     ldrsb   w15, [x14, #0]      // dX (signed)
@@ -65,20 +73,11 @@ snake_advance:
     add     w12, w12, w16       // newY = Y + dY
     add     w13, w13, w15       // newX = X + dX
 
-    // Advance head index (circularly)
-    add     w20, w20, #1
-    mov     w9, #MAX_SNAKE_LEN
-    udiv    w11, w20, w9
-    msub    w20, w11, w9, w20   // new_head_idx = (h_idx + 1) % MAX
-
-    // Store new head coordinates
-    add     x11, x19, x20, lsl #1
+    // 3. Store new head at the end of the array
+    sub     w10, w20, #1
+    add     x11, x19, w10, lsl #1
     strb    w12, [x11, #0]      // Store new Y
     strb    w13, [x11, #1]      // Store new X
-
-    // Store new head index
-    ldr     x9, =snake_head_idx
-    str     w20, [x9]
 
     ldp     x19, x20, [sp, #16]
     ldp     x29, x30, [sp], #32
