@@ -6,6 +6,12 @@
 .text
 
 main:
-    // This is a stub. The main game loop will be implemented here.
-    // For now, it just returns to _start, which will then exit.
-    ret 
+    // Initialize the renderer (clear screen, etc.)
+    bl      render_init
+
+    // Render the current game state
+    bl      render_snake
+
+    // For now, we just draw one frame and exit.
+    // The game loop will go here.
+    ret
