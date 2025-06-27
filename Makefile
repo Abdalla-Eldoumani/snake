@@ -2,7 +2,7 @@
 
 # Toolchain
 AS := gcc
-ASFLAGS := -nostdlib -static -g -o
+ASFLAGS := -nostdlib -static -g -Wa,-Isrc -o
 
 # Source files
 SRC_DIR := src
