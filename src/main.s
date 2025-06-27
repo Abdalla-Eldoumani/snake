@@ -13,7 +13,7 @@ main:
     stp     x29, x30, [sp, #-32]!
     mov     x29, sp
     mov     x1, #0              // tv_sec = 0
-    mov     x2, #100000000      // tv_nsec = 100,000,000
+    ldr     x2, =100000000      // tv_nsec = 100,000,000
     stp     x1, x2, [sp, #16]   // Store timespec on the stack
 
     // Initialize the renderer
