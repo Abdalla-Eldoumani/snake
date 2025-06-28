@@ -55,19 +55,36 @@ render_init:
 // Returns the number of digits in w0.
 // Clobbers: x0-x5
 utoa8:
-    mov     x5, x1          // Save original buffer pointer
-    mov     x2, #10         // Divisor
-    udiv    w3, w0, w2      // w3 = w0 / 10 (tens digit)
-    msub    w4, w3, w2, w0  // w4 = w0 - (w3 * 10) (ones digit)
-    add     w3, w3, #'0'    // Convert to ASCII
-    add     w4, w4, #'0'    // Convert to ASCII
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+
+    // Use a small 2-byte buffer on the stack for the digits.
+    sub     sp, sp, #16
+    mov     x4, sp              // x4 points to the temporary buffer
+    mov     x5, x1              // x5 holds the destination buffer pointer from the caller
+
+    mov     x2, #10             // Divisor
+    udiv    w3, w0, w2          // w3 = w0 / 10 (tens digit)
+    msub    w4, w3, w2, w0      // w4 = w0 - (w3 * 10) (ones digit)
+    add     w3, w3, #'0'        // Convert to ASCII
+    add     w4, w4, #'0'        // Convert to ASCII
+
+    mov     x0, #0              // x0 will be our return value (number of bytes written)
 
     cmp     w3, #'0'
-    b.eq    1f              // If tens digit is 0, skip storing it
-    strb    w3, [x1], #1    // Store tens digit
+    b.ne    1f                  // If tens digit is not 0, write it
+    cmp     w0, #0              // Special case for value 0 itself
+    b.eq    1f
+    b       2f
 1:
-    strb    w4, [x1], #1    // Store ones digit
-    sub     x0, x1, x5      // Return number of bytes written (new_ptr - old_ptr)
+    strb    w3, [x5], #1        // Write tens digit to destination
+    add     x0, x0, #1
+2:
+    strb    w4, [x5], #1        // Write ones digit to destination
+    add     x0, x0, #1
+
+    add     sp, sp, #16         // Deallocate stack buffer
+    ldp     x29, x30, [sp], #16
     ret
 
 render_snake:
