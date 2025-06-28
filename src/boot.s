@@ -13,6 +13,7 @@ _start:
     bl      main
 
     // Restore terminal before exiting
+    bl      disable_nonblock_mode
     bl      disable_raw_mode
 
     // Exit the program

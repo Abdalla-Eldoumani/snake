@@ -13,6 +13,7 @@ main:
     mov     x29, sp
 
     bl      enable_raw_mode
+    bl      enable_nonblock_mode
 
     // Setup timespec struct for 100ms delay
     mov     x1, #0              // tv_sec = 0
@@ -33,6 +34,9 @@ main:
     // b       exit_program
 
 game_loop:
+    // Check for user input
+    bl      handle_input
+
     // Store old tail position before advancing
     ldr     x9, =snake_body
     ldrh    w19, [x9]           // w19 = {Y, X} of old tail (Y in low byte)
@@ -61,6 +65,7 @@ game_loop:
     b       game_loop
 
 exit_program:
+    bl      disable_nonblock_mode
     bl      disable_raw_mode
     // The loop is infinite, but for completeness:
     ldp     x29, x30, [sp], #32
