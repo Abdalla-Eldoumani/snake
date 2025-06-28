@@ -23,15 +23,8 @@ main:
     // Initialize the renderer
     bl      render_init
 
-    // --- CRITICAL ISOLATION TEST ---
-    // The main game loop is disabled. We will call render_clear_tail once
-    // with hardcoded coordinates to test the rendering primitive in isolation.
-    mov     w0, #5      // Y = 5
-    mov     w1, #5      // X = 5
-    bl      render_clear_tail
-
     // The program will now exit. The game loop is bypassed.
-    b       exit_program
+    // b       exit_program
 
 game_loop:
     // Check for user input
@@ -47,12 +40,12 @@ game_loop:
     // Render the new frame
     bl      render_snake
 
-    // Clear the old tail segment
-    lsr     w20, w19, #8        // w20 = X
-    uxtb    w19, w19          // w19 = Y
-    mov     w0, w19
-    mov     w1, w20
-    bl      render_clear_tail
+    // Clear the old tail segment -- DISABLED FOR TEST
+    // lsr     w20, w19, #8        // w20 = X
+    // uxtb    w19, w19          // w19 = Y
+    // mov     w0, w19
+    // mov     w1, w20
+    // bl      render_clear_tail
 
     // Sleep for a bit
     mov     x0, #CLOCK_MONOTONIC
