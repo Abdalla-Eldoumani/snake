@@ -81,9 +81,10 @@ snake_advance:
     add     w12, w12, w15       // newY = Y + dY
     add     w13, w13, w16       // newX = X + dX
 
-    // 3. Store new head at the end of the array (index snake_len)
-    lsl     w11, w20, #1        // byte offset = snake_len * 2 (32-bit)
-    add     x11, x19, w11, uxtw // address of new head (64-bit, using zero-extended offset)
+    // 3. Store new head at the end of the array (index snake_len - 1)
+    sub     w10, w20, #1        // index = snake_len - 1
+    lsl     w11, w10, #1        // byte offset = index * 2
+    add     x11, x19, w11, uxtw // address of new head (64-bit)
     lsl     w13, w13, #8        // Pack X into high byte
     orr     w12, w12, w13       // w12 = {X, Y}
     strh    w12, [x11]          // Store new head
