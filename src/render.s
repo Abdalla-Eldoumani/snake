@@ -20,189 +20,146 @@ clear_char:       .ascii " "
 
 .text
 
-// Small helper to write a buffer to STDOUT
+// Writes a buffer to STDOUT.
 // Args: x0=address, x1=length
+// Clobbers: x0-x2, x8
 write_stdout:
-    stp     x29, x30, [sp, #-32]!
-    stp     x19, x20, [sp, #16]
-    mov     x29, sp
-
-    // Securely copy arguments to prevent corruption from caller state
-    mov     x19, x0                 // x19 = buffer address
-    mov     x20, x1                 // x20 = length
-
-    // Prepare for syscall using the saved, safe copies
-    mov     x0, #STDOUT             // fd
-    mov     x1, x19                 // buf
-    mov     x2, x20                 // count
     mov     x8, #WRITE
+    mov     x0, #STDOUT
+    // x1 (buf) and x2 (len) are passed through
     svc     #0
-
-    ldp     x19, x20, [sp, #16]
-    ldp     x29, x30, [sp], #32
     ret
+
+// Converts an 8-bit unsigned integer to a 2-digit string.
+// Suppresses leading zero.
+// Args: w0 = integer, x1 = buffer address
+// Returns: x0 = number of bytes written
+// Clobbers: x0-x4
+utoa8:
+    mov     x2, #10
+    udiv    w3, w0, w2          // w3 = val / 10 (tens digit)
+    msub    w4, w3, w2, w0      // w4 = val - (tens * 10) (ones digit)
+    add     w3, w3, #'0'
+    add     w4, w4, #'0'
+
+    mov     x0, #0              // Bytes written
+    cmp     w3, #'0'
+    b.eq    1f
+    strb    w3, [x1], #1        // Store tens digit if not '0'
+    add     x0, x0, #1
+1:
+    strb    w4, [x1], #1        // Store ones digit
+    add     x0, x0, #1
+    ret
+
+
+// Renders one character at a given coordinate.
+// Args: w0=Y, w1=X, x2=char_addr, x3=char_len
+render_char_at:
+    stp     x29, x30, [sp, #-48]!
+    mov     x29, sp
+    stp     x19, x20, [sp, #16] // Save registers
+    stp     x21, x22, [sp, #32]
+
+    // Preserve args
+    mov     w19, w0         // Y
+    mov     w20, w1         // X
+    mov     x21, x2         // char_addr
+    mov     x22, x3         // char_len
+
+    // Get a pointer to the on-stack buffer
+    add     x10, sp, #32    // Use the top 16 bytes of our 48-byte frame
+    mov     x11, x10        // Keep original buffer start in x11
+
+    // Build ANSI escape code: "\x1b["
+    mov     w9, #0x5b1b
+    strh    w9, [x10], #2
+
+    // Convert Y (w19) to string
+    mov     w0, w19
+    mov     x1, x10
+    bl      utoa8
+    add     x10, x10, x0 // Advance buffer pointer
+
+    // ";"
+    mov     w9, #';'
+    strb    w9, [x10], #1
+
+    // Convert X (w20) to string
+    mov     w0, w20
+    mov     x1, x10
+    bl      utoa8
+    add     x10, x10, x0 // Advance buffer pointer
+
+    // "H"
+    mov     w9, #'H'
+    strb    w9, [x10], #1
+
+    // Write the escape sequence
+    mov     x1, x11
+    sub     x2, x10, x11
+    bl      write_stdout
+
+    // Write the character itself
+    mov     x1, x21
+    mov     x2, x22
+    bl      write_stdout
+
+    ldp     x21, x22, [sp, #32]
+    ldp     x19, x20, [sp, #16]
+    ldp     x29, x30, [sp], #48
+    ret
+
 
 render_init:
     stp     x29, x30, [sp, #-16]!
     mov     x29, sp
 
-    // Clear screen
-    ldr     x0, =clear_screen_seq
-    mov     x1, #clear_screen_len
+    ldr     x1, =clear_screen_seq
+    mov     x2, #clear_screen_len
     bl      write_stdout
 
-    // Hide cursor
-    ldr     x0, =hide_cursor_seq
-    mov     x1, #hide_cursor_len
+    ldr     x1, =hide_cursor_seq
+    mov     x2, #hide_cursor_len
     bl      write_stdout
 
     ldp     x29, x30, [sp], #16
     ret
 
 render_snake:
-    // Allocate 80-byte stack frame for robust register saving
-    stp     x29, x30, [sp, #-80]!
+    stp     x29, x30, [sp, #-32]!
     mov     x29, sp
     stp     x19, x20, [sp, #16]
-    stp     x21, x22, [sp, #32]
-    stp     x23, x24, [sp, #48]
 
-    // Get snake properties
-    ldr     x19, =snake_body      // x19 = base address of snake body
+    ldr     x19, =snake_body
     ldr     x9, =snake_len
-    ldr     w20, [x9]             // w20 = snake_len
+    ldr     w20, [x9]
 
-    mov     x21, #0                 // Loop counter i=0
+    mov     x21, #0
+1:  // Loop start
+    cmp     x21, x20
+    b.ge    2f  // Loop end
 
-.L_loop_snake_body:
-    cmp     x21, x20                // while(i < snake_len)
-    b.ge    .L_loop_end
+    lsl     x22, x21, #1
+    add     x22, x19, x22
+    ldrh    w11, [x22]
+    lsr     w1, w11, #8     // X
+    uxtb    w0, w11         // Y
 
-    // Read snake segment {Y, X}
-    lsl     x22, x21, #1            // byte offset = i * 2
-    add     x22, x19, x22           // Address of snake_body[i]
-    ldrh    w11, [x22]              // Load {Y,X} pair as a halfword
-    lsr     w24, w11, #8            // w24 = X
-    uxtb    w23, w11                // w23 = Y
-
-    // Build ANSI escape code in a safe buffer on the stack (sp + 64)
-    add     x11, sp, #64
-    mov     x10, x11
-
-    mov     w9, #0x5b1b
-    strh    w9, [x10], #2
-
-    // --- Inlined utoa8 for Y coordinate (w23) ---
-    mov     w0, w23
-    mov     x2, #10
-    udiv    w3, w0, w2
-    msub    w4, w3, w2, w0
-    add     w3, w3, #'0'
-    add     w4, w4, #'0'
-    cmp     w3, #'0'
-    b.eq    .L_render_snake_1
-    strb    w3, [x10], #1
-.L_render_snake_1:
-    strb    w4, [x10], #1
-
-    mov     w9, #';'
-    strb    w9, [x10], #1
-
-    // --- Inlined utoa8 for X coordinate (w24) ---
-    mov     w0, w24
-    mov     x2, #10
-    udiv    w3, w0, w2
-    msub    w4, w3, w2, w0
-    add     w3, w3, #'0'
-    add     w4, w4, #'0'
-    cmp     w3, #'0'
-    b.eq    .L_render_snake_2
-    strb    w3, [x10], #1
-.L_render_snake_2:
-    strb    w4, [x10], #1
-
-    mov     w9, #'H'
-    strb    w9, [x10], #1
-
-    mov     x0, x11
-    sub     x1, x10, x11
-    bl      write_stdout
-
-    ldr     x0, =snake_char
-    mov     x1, #1
-    bl      write_stdout
+    ldr     x2, =snake_char
+    mov     x3, #1
+    bl      render_char_at
 
     add     x21, x21, #1
-    b       .L_loop_snake_body
+    b       1b
+2:  // Loop end
 
-.L_loop_end:
-    ldp     x23, x24, [sp, #48]
-    ldp     x21, x22, [sp, #32]
     ldp     x19, x20, [sp, #16]
-    ldp     x29, x30, [sp], #80
+    ldp     x29, x30, [sp], #32
     ret
 
 render_clear_tail:
     // Args: w0=Y, w1=X
-    // Allocate 48-byte stack frame: 16 for FP/LR, 16 for x19/x20, 16 for buffer
-    stp     x29, x30, [sp, #-48]!
-    mov     x29, sp
-    stp     x19, x20, [sp, #16]     // Save temp registers
-
-    // Preserve args
-    mov     w19, w0
-    mov     w20, w1
-
-    // Build ANSI escape code in a safe buffer on the stack
-    add     x11, sp, #32            // Buffer starts at sp + 32, a safe area
-    mov     x10, x11
-
-    mov     w9, #0x5b1b
-    strh    w9, [x10], #2
-
-    // --- Inlined utoa8 for Y coordinate (w19) ---
-    mov     w0, w19
-    mov     x2, #10
-    udiv    w3, w0, w2
-    msub    w4, w3, w2, w0
-    add     w3, w3, #'0'
-    add     w4, w4, #'0'
-    cmp     w3, #'0'
-    b.eq    .L_render_clear_1
-    strb    w3, [x10], #1
-.L_render_clear_1:
-    strb    w4, [x10], #1
-    // --- End inlined utoa8 ---
-
-    mov     w9, #';'
-    strb    w9, [x10], #1
-
-    // --- Inlined utoa8 for X coordinate (w20) ---
-    mov     w0, w20
-    mov     x2, #10
-    udiv    w3, w0, w2
-    msub    w4, w3, w2, w0
-    add     w3, w3, #'0'
-    add     w4, w4, #'0'
-    cmp     w3, #'0'
-    b.eq    .L_render_clear_2
-    strb    w3, [x10], #1
-.L_render_clear_2:
-    strb    w4, [x10], #1
-    // --- End inlined utoa8 ---
-
-    mov     w9, #'H'
-    strb    w9, [x10], #1
-
-    mov     x0, x11
-    sub     x1, x10, x11
-    bl      write_stdout
-
-    // Write the clear character
-    ldr     x0, =clear_char
-    mov     x1, #1
-    bl      write_stdout
-
-    ldp     x19, x20, [sp, #16]
-    ldp     x29, x30, [sp], #48
-    ret
+    ldr     x2, =clear_char
+    mov     x3, #1
+    b       render_char_at // Tail call

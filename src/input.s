@@ -67,12 +67,6 @@ disable_nonblock_mode:
 
 // Reads a key and updates snake_dir if valid.
 handle_input:
-    // --- ISOLATION TEST ---
-    // This function is temporarily disabled to isolate the rendering bug.
-    // It will do nothing and return immediately.
-    ret
-
-/*
     stp     x29, x30, [sp, #-32]!
     mov     x29, sp
     stp     x19, x20, [sp, #16]
@@ -128,5 +122,4 @@ handle_input:
     add     sp, sp, #16             // Restore stack pointer
     ldp     x19, x20, [sp, #16]
     ldp     x29, x30, [sp], #32
-    ret 
-*/
+    ret
