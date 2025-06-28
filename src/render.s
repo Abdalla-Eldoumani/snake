@@ -51,42 +51,6 @@ render_init:
     ldp     x29, x30, [sp], #16
     ret
 
-// Converts an 8-bit unsigned integer in w0 to a string at the address in x1.
-// Returns the number of digits in w0.
-// Clobbers: x0-x5
-utoa8:
-    stp     x29, x30, [sp, #-16]!
-    mov     x29, sp
-
-    // Use a small 2-byte buffer on the stack for the digits.
-    sub     sp, sp, #16
-    mov     x4, sp              // x4 points to the temporary buffer
-    mov     x5, x1              // x5 holds the destination buffer pointer from the caller
-
-    mov     x2, #10             // Divisor
-    udiv    w3, w0, w2          // w3 = w0 / 10 (tens digit)
-    msub    w4, w3, w2, w0      // w4 = w0 - (w3 * 10) (ones digit)
-    add     w3, w3, #'0'        // Convert to ASCII
-    add     w4, w4, #'0'        // Convert to ASCII
-
-    mov     x0, #0              // x0 will be our return value (number of bytes written)
-
-    cmp     w3, #'0'
-    b.ne    1f                  // If tens digit is not 0, write it
-    cmp     w0, #0              // Special case for value 0 itself
-    b.eq    1f
-    b       2f
-1:
-    strb    w3, [x5], #1        // Write tens digit to destination
-    add     x0, x0, #1
-2:
-    strb    w4, [x5], #1        // Write ones digit to destination
-    add     x0, x0, #1
-
-    add     sp, sp, #16         // Deallocate stack buffer
-    ldp     x29, x30, [sp], #16
-    ret
-
 render_snake:
     // Allocate 48-byte stack frame: 16 for FP/LR, 16 for x19/x20, 16 for buffer
     stp     x29, x30, [sp, #-48]!
@@ -118,21 +82,37 @@ loop_snake_body:
     mov     w9, #0x5b1b             // ASCII for '[' is 0x5b, ESC is 0x1b
     strh    w9, [x10], #2           // Store halfword and advance pointer by 2
 
-    // <Y>
+    // --- Inlined utoa8 for Y coordinate (w23) ---
     mov     w0, w23
-    mov     x1, x10
-    bl      utoa8
-    add     x10, x10, x0
+    mov     x2, #10
+    udiv    w3, w0, w2
+    msub    w4, w3, w2, w0
+    add     w3, w3, #'0'
+    add     w4, w4, #'0'
+    cmp     w3, #'0'
+    b.eq    1f
+    strb    w3, [x10], #1
+1:
+    strb    w4, [x10], #1
+    // --- End inlined utoa8 ---
 
     // ";"
     mov     w9, #';'
     strb    w9, [x10], #1
 
-    // <X>
+    // --- Inlined utoa8 for X coordinate (w24) ---
     mov     w0, w24
-    mov     x1, x10
-    bl      utoa8
-    add     x10, x10, x0
+    mov     x2, #10
+    udiv    w3, w0, w2
+    msub    w4, w3, w2, w0
+    add     w3, w3, #'0'
+    add     w4, w4, #'0'
+    cmp     w3, #'0'
+    b.eq    2f
+    strb    w3, [x10], #1
+2:
+    strb    w4, [x10], #1
+    // --- End inlined utoa8 ---
 
     // "H"
     mov     w9, #'H'
@@ -174,18 +154,36 @@ render_clear_tail:
     mov     w9, #0x5b1b
     strh    w9, [x10], #2
 
-    mov     w0, w19 // Y coord
-    mov     x1, x10
-    bl      utoa8
-    add     x10, x10, x0
+    // --- Inlined utoa8 for Y coordinate (w19) ---
+    mov     w0, w19
+    mov     x2, #10
+    udiv    w3, w0, w2
+    msub    w4, w3, w2, w0
+    add     w3, w3, #'0'
+    add     w4, w4, #'0'
+    cmp     w3, #'0'
+    b.eq    3f
+    strb    w3, [x10], #1
+3:
+    strb    w4, [x10], #1
+    // --- End inlined utoa8 ---
 
     mov     w9, #';'
     strb    w9, [x10], #1
 
-    mov     w0, w20 // X coord
-    mov     x1, x10
-    bl      utoa8
-    add     x10, x10, x0
+    // --- Inlined utoa8 for X coordinate (w20) ---
+    mov     w0, w20
+    mov     x2, #10
+    udiv    w3, w0, w2
+    msub    w4, w3, w2, w0
+    add     w3, w3, #'0'
+    add     w4, w4, #'0'
+    cmp     w3, #'0'
+    b.eq    4f
+    strb    w3, [x10], #1
+4:
+    strb    w4, [x10], #1
+    // --- End inlined utoa8 ---
 
     mov     w9, #'H'
     strb    w9, [x10], #1
