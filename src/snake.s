@@ -76,8 +76,7 @@ shift_loop:
     add     w13, w13, w16       // newX = X + dX
 
     // 3. Store new head at the end of the array
-    sub     w10, w20, #1
-    add     x11, x19, w10, uxtw #1
+    add     x11, x19, w20, uxtw #1  // Use snake_len as the index for the new head
     lsl     w13, w13, #8
     orr     w12, w12, w13       // w12 = {newX, newY}
     strh    w12, [x11]
