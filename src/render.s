@@ -57,23 +57,11 @@ render_snake:
     mov     x29, sp
     stp     x19, x20, [sp, #16]     // Save callee-saved registers
 
-    // Get snake properties
-    ldr     x19, =snake_body      // x19 = base address of snake body
-    ldr     x9, =snake_len
-    ldr     w20, [x9]             // w20 = snake_len
-
-    mov     x21, #0                 // Loop counter i=0
-
-loop_snake_body:
-    cmp     x21, x20                // while(i < snake_len)
-    b.ge    loop_end
-
-    // Read snake segment {Y, X}
-    lsl     x22, x21, #1            // byte offset = i * 2
-    add     x22, x19, x22           // Address of snake_body[i]
-    ldrh    w11, [x22]              // Load {Y,X} pair as a halfword
-    lsr     w24, w11, #8            // w24 = X
-    uxtb    w23, w11                // w23 = Y
+    // --- ISOLATION TEST ---
+    // The snake rendering loop is bypassed. We will render a single '#'
+    // at a hardcoded position (Y=10, X=15) to test the core rendering logic.
+    mov     w23, #10                // Y = 10
+    mov     w24, #15                // X = 15
 
     // Build ANSI escape code in a safe buffer on the stack
     add     x11, sp, #32            // x11 = start of our safe buffer
@@ -91,9 +79,9 @@ loop_snake_body:
     add     w3, w3, #'0'
     add     w4, w4, #'0'
     cmp     w3, #'0'
-    b.eq    5f
+    b.eq    1f
     strb    w3, [x10], #1
-5:
+1:
     strb    w4, [x10], #1
     // --- End inlined utoa8 ---
 
@@ -109,9 +97,9 @@ loop_snake_body:
     add     w3, w3, #'0'
     add     w4, w4, #'0'
     cmp     w3, #'0'
-    b.eq    6f
+    b.eq    2f
     strb    w3, [x10], #1
-6:
+2:
     strb    w4, [x10], #1
     // --- End inlined utoa8 ---
 
@@ -128,11 +116,8 @@ loop_snake_body:
     ldr     x0, =snake_char
     mov     x1, #1
     bl      write_stdout
+    // --- END ISOLATION TEST ---
 
-    add     x21, x21, #1            // i++
-    b       loop_snake_body
-
-loop_end:
     ldp     x19, x20, [sp, #16]     // Restore callee-saved registers
     ldp     x29, x30, [sp], #48
     ret
