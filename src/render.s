@@ -23,15 +23,23 @@ clear_char:       .ascii " "
 // Small helper to write a buffer to STDOUT
 // Args: x0=address, x1=length
 write_stdout:
-    stp     x29, x30, [sp, #-16]!
+    stp     x29, x30, [sp, #-32]!
+    stp     x19, x20, [sp, #16]
     mov     x29, sp
-    // syscall write(STDOUT, buf, len)
-    mov     x2, x1
-    mov     x1, x0
-    mov     x0, #STDOUT
+
+    // Securely copy arguments to prevent corruption from caller state
+    mov     x19, x0                 // x19 = buffer address
+    mov     x20, x1                 // x20 = length
+
+    // Prepare for syscall using the saved, safe copies
+    mov     x0, #STDOUT             // fd
+    mov     x1, x19                 // buf
+    mov     x2, x20                 // count
     mov     x8, #WRITE
     svc     #0
-    ldp     x29, x30, [sp], #16
+
+    ldp     x19, x20, [sp, #16]
+    ldp     x29, x30, [sp], #32
     ret
 
 render_init:
@@ -52,24 +60,37 @@ render_init:
     ret
 
 render_snake:
-    // Allocate 48-byte stack frame: 16 for FP/LR, 16 for x19/x20, 16 for buffer
-    stp     x29, x30, [sp, #-48]!
+    // Allocate 80-byte stack frame for robust register saving
+    stp     x29, x30, [sp, #-80]!
     mov     x29, sp
-    stp     x19, x20, [sp, #16]     // Save callee-saved registers
+    stp     x19, x20, [sp, #16]
+    stp     x21, x22, [sp, #32]
+    stp     x23, x24, [sp, #48]
 
-    // --- ISOLATION TEST ---
-    // The snake rendering loop is bypassed. We will render a single '#'
-    // at a hardcoded position (Y=10, X=15) to test the core rendering logic.
-    mov     w23, #10                // Y = 10
-    mov     w24, #15                // X = 15
+    // Get snake properties
+    ldr     x19, =snake_body      // x19 = base address of snake body
+    ldr     x9, =snake_len
+    ldr     w20, [x9]             // w20 = snake_len
 
-    // Build ANSI escape code in a safe buffer on the stack
-    add     x11, sp, #32            // x11 = start of our safe buffer
-    mov     x10, x11                // x10 = current position in buffer
+    mov     x21, #0                 // Loop counter i=0
 
-    // Write "\\x1b[" (2 bytes)
-    mov     w9, #0x5b1b             // ASCII for '[' is 0x5b, ESC is 0x1b
-    strh    w9, [x10], #2           // Store halfword and advance pointer by 2
+.L_loop_snake_body:
+    cmp     x21, x20                // while(i < snake_len)
+    b.ge    .L_loop_end
+
+    // Read snake segment {Y, X}
+    lsl     x22, x21, #1            // byte offset = i * 2
+    add     x22, x19, x22           // Address of snake_body[i]
+    ldrh    w11, [x22]              // Load {Y,X} pair as a halfword
+    lsr     w24, w11, #8            // w24 = X
+    uxtb    w23, w11                // w23 = Y
+
+    // Build ANSI escape code in a safe buffer on the stack (sp + 64)
+    add     x11, sp, #64
+    mov     x10, x11
+
+    mov     w9, #0x5b1b
+    strh    w9, [x10], #2
 
     // --- Inlined utoa8 for Y coordinate (w23) ---
     mov     w0, w23
@@ -79,13 +100,11 @@ render_snake:
     add     w3, w3, #'0'
     add     w4, w4, #'0'
     cmp     w3, #'0'
-    b.eq    1f
+    b.eq    .L_render_snake_1
     strb    w3, [x10], #1
-1:
+.L_render_snake_1:
     strb    w4, [x10], #1
-    // --- End inlined utoa8 ---
 
-    // ";"
     mov     w9, #';'
     strb    w9, [x10], #1
 
@@ -97,29 +116,30 @@ render_snake:
     add     w3, w3, #'0'
     add     w4, w4, #'0'
     cmp     w3, #'0'
-    b.eq    2f
+    b.eq    .L_render_snake_2
     strb    w3, [x10], #1
-2:
+.L_render_snake_2:
     strb    w4, [x10], #1
-    // --- End inlined utoa8 ---
 
-    // "H"
     mov     w9, #'H'
     strb    w9, [x10], #1
 
-    // Write the escape code
-    mov     x0, x11                 // Arg 1: start of the buffer
-    sub     x1, x10, x11            // Arg 2: length (current_ptr - start_ptr)
+    mov     x0, x11
+    sub     x1, x10, x11
     bl      write_stdout
 
-    // Write the snake character
     ldr     x0, =snake_char
     mov     x1, #1
     bl      write_stdout
-    // --- END ISOLATION TEST ---
 
-    ldp     x19, x20, [sp, #16]     // Restore callee-saved registers
-    ldp     x29, x30, [sp], #48
+    add     x21, x21, #1
+    b       .L_loop_snake_body
+
+.L_loop_end:
+    ldp     x23, x24, [sp, #48]
+    ldp     x21, x22, [sp, #32]
+    ldp     x19, x20, [sp, #16]
+    ldp     x29, x30, [sp], #80
     ret
 
 render_clear_tail:
@@ -148,9 +168,9 @@ render_clear_tail:
     add     w3, w3, #'0'
     add     w4, w4, #'0'
     cmp     w3, #'0'
-    b.eq    3f
+    b.eq    .L_render_clear_1
     strb    w3, [x10], #1
-3:
+.L_render_clear_1:
     strb    w4, [x10], #1
     // --- End inlined utoa8 ---
 
@@ -165,9 +185,9 @@ render_clear_tail:
     add     w3, w3, #'0'
     add     w4, w4, #'0'
     cmp     w3, #'0'
-    b.eq    4f
+    b.eq    .L_render_clear_2
     strb    w3, [x10], #1
-4:
+.L_render_clear_2:
     strb    w4, [x10], #1
     // --- End inlined utoa8 ---
 
