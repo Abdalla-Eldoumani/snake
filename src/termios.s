@@ -1,81 +1,92 @@
 /*
- * termios.s: Raw mode terminal functions
+ * termios.s: Raw mode terminal functions using `stty`
  */
-.equ STDIN, 0
-.equ IOCTL, 29
 
-.equ TCGETS, 0x5401
-.equ TCSETS, 0x5402
-
-// c_lflag bits
-.equ ECHO,   0x00000010
-.equ ICANON, 0x00000002
+.equ FORK,     97
+.equ EXECVE,   221
+.equ WAITPID,  260
+.equ EXIT,     93
 
 .global enable_raw_mode
 .global disable_raw_mode
 
-.data
-.align 8
-original_termios: .space 60  // Reserve 60 bytes for the termios struct
+.section .rodata
+stty_path:      .asciz "/bin/stty"
+stty_arg_raw:   .asciz "raw"
+stty_arg_cooked:.asciz "-raw"
+stty_arg_echo:  .asciz "-echo"
 
 .text
 
-enable_raw_mode:
-    stp     x29, x30, [sp, #-80]!   // Save FP, LR and allocate 80 bytes (60 for struct + 20 for alignment/padding)
+// Helper to run /bin/stty with a given argument
+// Arg X0: address of the argument string (e.g., "raw" or "-raw")
+run_stty:
+    stp     x29, x30, [sp, #-48]!
     mov     x29, sp
 
-    // Local termios struct is at [sp, #16]
-    add     x10, sp, #16            // x10 holds address of local_termios
+    // Save the argument for later
+    mov     x19, x0
 
-    // 1. Get current terminal settings
-    // ioctl(STDIN, TCGETS, &original_termios)
-    mov     x0, #STDIN
-    mov     x1, #TCGETS
-    ldr     x2, =original_termios
-    mov     x8, #IOCTL
+    // Build the argv array on the stack
+    // argv[0] = "/bin/stty"
+    // argv[1] = the argument (e.g. "raw")
+    // argv[2] = NULL
+    ldr     x1, =stty_path
+    str     x1, [sp, #16]
+    str     x19, [sp, #24]
+    str     xzr, [sp, #32]          // Null terminator
+
+    // Fork the process
+    mov     x8, #FORK
+    svc     #0
+    // x0 now holds the PID. 0 for child, >0 for parent.
+    cbz     x0, .L_child_process
+
+.L_parent_process:
+    // waitpid(pid, NULL, 0)
+    // x0 already contains the PID from the fork
+    mov     x1, xzr                 // status (not needed)
+    mov     x2, xzr                 // options
+    mov     x8, #WAITPID
+    svc     #0
+    b       .L_stty_done
+
+.L_child_process:
+    // execve("/bin/stty", argv, NULL)
+    ldr     x0, =stty_path
+    add     x1, sp, #16             // address of argv array
+    mov     x2, xzr                 // envp = NULL
+    mov     x8, #EXECVE
     svc     #0
 
-    // 2. Copy original to local and modify for raw mode
-    ldr     x2, =original_termios
-    mov     x3, x10
-    // A 60-byte copy can be done more efficiently with LDP/STP
-    ldp     x4, x5, [x2, #0]
-    ldp     x6, x7, [x2, #16]
-    ldp     x8, x9, [x2, #32]
-    ldp     x0, x1, [x2, #48] // loads 4 bytes extra, but ok
-    stp     x4, x5, [x3, #0]
-    stp     x6, x7, [x3, #16]
-    stp     x8, x9, [x3, #32]
-    stp     x0, x1, [x3, #48]
-
-    // Clear ICANON and ECHO flags in c_lflag
-    // c_lflag is at offset 12 in the termios struct for aarch64
-    ldr     w6, [x10, #12]
-    bic     w6, w6, #ICANON
-    bic     w6, w6, #ECHO
-    str     w6, [x10, #12]
-
-    // 3. Set new terminal settings
-    // ioctl(STDIN, TCSETS, &local_termios)
-    mov     x0, #STDIN
-    mov     x1, #TCSETS
-    mov     x2, x10
-    mov     x8, #IOCTL
+    // If execve returns, it's an error. Exit child.
+    mov     w0, #127                // Command not found
+    mov     x8, #EXIT
     svc     #0
 
-    ldp     x29, x30, [sp], #80     // Restore FP, LR and deallocate stack
+.L_stty_done:
+    ldp     x29, x30, [sp], #48
+    ret
+
+
+enable_raw_mode:
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
+
+    ldr     x0, =stty_arg_raw
+    bl      run_stty
+    ldr     x0, =stty_arg_echo      // Also disable echo explicitly
+    bl      run_stty
+
+    ldp     x29, x30, [sp], #16
     ret
 
 disable_raw_mode:
-    stp     x29, x30, [sp, #-16]!   // Save FP and LR
+    stp     x29, x30, [sp, #-16]!
+    mov     x29, sp
 
-    // Restore original terminal settings
-    // ioctl(STDIN, TCSETS, &original_termios)
-    mov     x0, #STDIN
-    mov     x1, #TCSETS
-    ldr     x2, =original_termios
-    mov     x8, #IOCTL
-    svc     #0
+    ldr     x0, =stty_arg_cooked
+    bl      run_stty
 
-    ldp     x29, x30, [sp], #16     // Restore FP and LR
+    ldp     x29, x30, [sp], #16
     ret 
