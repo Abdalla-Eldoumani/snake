@@ -1,1 +1,2 @@
-- Not fully implemented yet.
+- Trying to create the snake game in ARMv8 Assembly
+- Not yet fully implemented
