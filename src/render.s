@@ -69,7 +69,8 @@ loop_snake_body:
     b.ge    loop_end
 
     // Read snake segment {Y, X}
-    add     x22, x19, x21, uxtw #1  // Address of snake_body[i]
+    lsl     x22, x21, #1            // byte offset = i * 2
+    add     x22, x19, x22           // Address of snake_body[i]
     ldrh    w11, [x22]              // Load {Y,X} pair as a halfword
     lsr     w24, w11, #8            // w24 = X
     uxtb    w23, w11                // w23 = Y
