@@ -26,12 +26,12 @@ main:
     // --- CRITICAL ISOLATION TEST ---
     // The main game loop is disabled. We will call render_clear_tail once
     // with hardcoded coordinates to test the rendering primitive in isolation.
-    // mov     w0, #5      // Y = 5
-    // mov     w1, #5      // X = 5
-    // bl      render_clear_tail
+    mov     w0, #5      // Y = 5
+    mov     w1, #5      // X = 5
+    bl      render_clear_tail
 
     // The program will now exit. The game loop is bypassed.
-    // b       exit_program
+    b       exit_program
 
 game_loop:
     // Check for user input
