@@ -79,9 +79,9 @@ render_snake:
     add     w3, w3, #'0'
     add     w4, w4, #'0'
     cmp     w3, #'0'
-    b.eq    1f
+    b.eq    5f
     strb    w3, [x10], #1
-1:
+5:
     strb    w4, [x10], #1
     // --- End inlined utoa8 ---
 
@@ -97,9 +97,9 @@ render_snake:
     add     w3, w3, #'0'
     add     w4, w4, #'0'
     cmp     w3, #'0'
-    b.eq    2f
+    b.eq    6f
     strb    w3, [x10], #1
-2:
+6:
     strb    w4, [x10], #1
     // --- End inlined utoa8 ---
 
