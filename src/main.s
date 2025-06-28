@@ -30,12 +30,12 @@ game_loop:
     // Render the new frame
     bl      render_snake
 
-    // Clear the old tail segment
-    lsr     w20, w19, #8        // w20 = X
-    uxtb    w19, w19          // w19 = Y
-    mov     w0, w19
-    mov     w1, w20
-    bl      render_clear_tail
+    // Clear the old tail segment (TEMPORARILY DISABLED FOR DEBUGGING)
+    // lsr     w20, w19, #8        // w20 = X
+    // uxtb    w19, w19          // w19 = Y
+    // mov     w0, w19
+    // mov     w1, w20
+    // bl      render_clear_tail
 
     // Sleep for a bit
     mov     x0, #CLOCK_MONOTONIC
