@@ -140,17 +140,17 @@ loop_end:
 
 render_clear_tail:
     // Args: w0=Y, w1=X
-    stp     x29, x30, [sp, #-32]!
-    stp     x19, x20, [sp, #16]     // Save temp registers
+    // Allocate 48-byte stack frame: 16 for FP/LR, 16 for x19/x20, 16 for buffer
+    stp     x29, x30, [sp, #-48]!
     mov     x29, sp
+    stp     x19, x20, [sp, #16]     // Save temp registers
 
     // Preserve args
     mov     w19, w0
     mov     w20, w1
 
     // Build ANSI escape code in a safe buffer on the stack
-    mov     x11, sp                 // Buffer starts at sp
-    add     x11, sp, #16            // Use safe area after saved regs
+    add     x11, sp, #32            // Buffer starts at sp + 32, a safe area
     mov     x10, x11
 
     mov     w9, #0x5b1b
@@ -182,5 +182,5 @@ render_clear_tail:
     bl      write_stdout
 
     ldp     x19, x20, [sp, #16]
-    ldp     x29, x30, [sp], #32
+    ldp     x29, x30, [sp], #48
     ret
