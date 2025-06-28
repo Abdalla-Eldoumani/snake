@@ -61,9 +61,8 @@ snake_advance:
 .L_calc_new_head:
     // 2. Calculate new head position
     // Get old head, which is now at index (snake_len - 1) after the shift
-    sub     w10, w20, #1        // w10 = old head index
-    lsl     x11, x10, #1        // byte offset = index * 2
-    add     x11, x19, x11       // address of old head
+    sub     x10, x20, #1        // x10 = old head index (64-bit)
+    add     x11, x19, x10, lsl #1 // address of old head = base + index*2
     ldrh    w11, [x11]          // w11 = {X, Y} of old head
     lsr     w13, w11, #8        // w13 = X
     uxtb    w12, w11            // w12 = Y
@@ -82,9 +81,8 @@ snake_advance:
     add     w13, w13, w16       // newX = X + dX
 
     // 3. Store new head at the end of the array (index snake_len - 1)
-    sub     w10, w20, #1        // index = snake_len - 1
-    lsl     w11, w10, #1        // byte offset = index * 2
-    add     x11, x19, w11, uxtw // address of new head (64-bit)
+    sub     x10, x20, #1        // index = snake_len - 1 (64-bit)
+    add     x11, x19, x10, lsl #1 // address of new head = base + index*2
     lsl     w13, w13, #8        // Pack X into high byte
     orr     w12, w12, w13       // w12 = {X, Y}
     strh    w12, [x11]          // Store new head
