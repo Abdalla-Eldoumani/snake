@@ -7,25 +7,17 @@
 .global snake_len
 .global snake_dir
 .global snake_advance
+.global render_snake
+.global render_clear_tail
 
-.data
-.align 2
+.section .data
 snake_body:
-    // Snake body stored as 16-bit values: {X, Y}
-    // High byte: X, Low byte: Y
-    .hword (10 << 8) | 10  // Tail
-    .hword (11 << 8) | 10
-    .hword (12 << 8) | 10
-    .hword (13 << 8) | 10  // Head
-    // Reserve space for the rest of the body
-    .space (MAX_SNAKE_LEN - 4) * 2
+    .hword 0x0a0a, 0x0b0a, 0x0c0a, 0x0d0a // {Y,X} pairs. Head is at the end.
+.equ snake_body_end, .
+snake_len:  .word 4
+snake_dir:  .byte 0                       // 0:d, 1:a, 2:w, 3:s
 
-snake_len:
-    .word 4
-
-snake_dir:
-    // 0:right, 1:left, 2:up, 3:down
-    .byte 0
+.section .text
 
 // Branchless direction mapping: {dX, dY} pairs for {R, L, U, D}
 direction_deltas:
@@ -34,7 +26,6 @@ direction_deltas:
     .byte 0, -1  // Up
     .byte 0, 1   // Down
 
-.text
 snake_advance:
     stp     x29, x30, [sp, #-32]!
     stp     x19, x20, [sp, #16]
