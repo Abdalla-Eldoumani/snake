@@ -22,20 +22,20 @@ main:
     // --- CRITICAL ISOLATION TEST ---
     // The main game loop is disabled. We will call render_clear_tail once
     // with hardcoded coordinates to test the rendering primitive in isolation.
-    mov     w0, #5      // Y = 5
-    mov     w1, #5      // X = 5
-    bl      render_clear_tail
+    // mov     w0, #5      // Y = 5
+    // mov     w1, #5      // X = 5
+    // bl      render_clear_tail
 
     // The program will now exit. The game loop is bypassed.
-    b       exit_program
+    // b       exit_program
 
 game_loop:
     // Store old tail position before advancing
     ldr     x9, =snake_body
     ldrh    w19, [x9]           // w19 = {Y, X} of old tail (Y in low byte)
 
-    // Advance game state (TEMPORARILY DISABLED FOR DEBUGGING)
-    // bl      snake_advance
+    // Advance game state
+    bl      snake_advance
 
     // Render the new frame
     bl      render_snake
@@ -57,7 +57,7 @@ game_loop:
 
     b       game_loop
 
-exit_program:
+// exit_program:
     // The loop is infinite, but for completeness:
     ldp     x29, x30, [sp], #32
     ret

@@ -45,6 +45,7 @@ snake_advance:
     ldr     w20, [x9]           // w20 = snake_len
 
     // 1. Shift body array one element to the left
+    // Equivalent to: for(i=0; i < snake_len-1; i++) body[i] = body[i+1]
     mov     x1, x19             // dest = &snake_body[0]
     add     x0, x19, #2         // src = &snake_body[1]
     sub     w2, w20, #1         // n_pairs = snake_len - 1
@@ -55,29 +56,31 @@ shift_loop:
     b.ne    shift_loop
 
     // 2. Calculate new head position
-    // Get old head (now at second-to-last position)
-    sub     w10, w20, #2
+    // Get old head (which is now at the second-to-last position)
+    sub     w10, w20, #1
     add     x11, x19, w10, uxtw #1
-    ldrb    w12, [x11, #0]      // Current Y
-    ldrb    w13, [x11, #1]      // Current X
+    ldrh    w11, [x11]          // w11 = {Y, X} of old head
+    lsr     w13, w11, #8        // w13 = X
+    uxtb    w12, w11            // w12 = Y
 
     // Get dX, dY from lookup table
     ldr     x9, =snake_dir
     ldrb    w10, [x9]
     ldr     x14, =direction_deltas
-    add     x14, x14, x10, lsl #1
-    ldrsb   w15, [x14, #0]      // dX (signed)
-    ldrsb   w16, [x14, #1]      // dY (signed)
+    add     x14, x14, w10, uxtw #1
+    ldrsb   w15, [x14, #1]      // dY (signed)
+    ldrsb   w16, [x14, #0]      // dX (signed)
 
     // Calculate new head coordinates
-    add     w12, w12, w16       // newY = Y + dY
-    add     w13, w13, w15       // newX = X + dX
+    add     w12, w12, w15       // newY = Y + dY
+    add     w13, w13, w16       // newX = X + dX
 
     // 3. Store new head at the end of the array
     sub     w10, w20, #1
     add     x11, x19, w10, uxtw #1
-    strb    w12, [x11, #0]      // Store new Y
-    strb    w13, [x11, #1]      // Store new X
+    lsl     w13, w13, #8
+    orr     w12, w12, w13       // w12 = {newX, newY}
+    strh    w12, [x11]
 
     ldp     x19, x20, [sp, #16]
     ldp     x29, x30, [sp], #32
